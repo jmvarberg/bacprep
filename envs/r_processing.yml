@@ -1,0 +1,9 @@
+name: r_processing
+channels:
+- conda-forge
+- bioconda
+dependencies:
+- conda-forge::r-base=4.4.0
+- conda-forge::r-data.table=1.17.8
+- conda-forge::r-dplyr=1.2.0
+- conda-forge::r-stringr=1.6.0
