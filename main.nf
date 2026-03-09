@@ -111,7 +111,7 @@ process PROCESS_STATS_WITH_R {
             dplyr::mutate(
                 R1 = NA, 
                 R2 = NA, 
-                LongFastQ = paste0(fastq_path, "/", file),
+                LongFastQ = paste0(fastq_path, file),
                 GenomeSize = ${params.genome_size}
             ) |>
             dplyr::rename(ID = isolate) |>
@@ -121,7 +121,7 @@ process PROCESS_STATS_WITH_R {
             dplyr::mutate(
                 R1 = NA, 
                 R2 = NA, 
-                LongFastQ = paste0(fastq_path, "/", file),
+                LongFastQ = paste0(fastq_path, file),
                 GenomeSize = ${params.genome_size}
             ) |>
             dplyr::rename(ID = isolate) |>
@@ -140,7 +140,7 @@ process PROCESS_STATS_WITH_R {
 
         ind_sample_sheet <- ind_filtered_stats |>
             dplyr::mutate(
-                LongFastQ = paste0(fastq_path, "/", file),
+                LongFastQ = paste0(fastq_path, file),
                 GenomeSize = ${params.genome_size}
             ) |>
             dplyr::rename(ID = isolate) |>
@@ -150,7 +150,7 @@ process PROCESS_STATS_WITH_R {
 
         comb_sample_sheet <- comb_filtered_stats |>
             dplyr::mutate(
-                LongFastQ = paste0(fastq_path, "/", file),
+                LongFastQ = paste0(fastq_path, file),
                 GenomeSize = ${params.genome_size}
             ) |>
             dplyr::rename(ID = isolate) |>
