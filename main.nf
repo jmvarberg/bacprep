@@ -77,15 +77,12 @@ process PROCESS_STATS_WITH_R {
     
     # Read data
     stats <- data.table::fread("${seqkit_stats_report}")
-    combine_ont <- as.logical("${params.combine_ont}")
     read_type <- as.character("${params.read_type}")
     fastq_path <- "${params.outdir}/combined_fastqs/"
 
-    # Process - using str_match with capture group
+    cat("Calculating combined coverage with and without combining runs for isolates...\\n")
     
-    if (combine_ont) {
-        cat("Calculating combined coverage by combining runs for isolates...\\n")
-        stats <- stats |>
+    stats <- stats |>
         dplyr::mutate(
                 genome_size   = ${params.genome_size},
                 predicted_cov = sum_len / genome_size,
@@ -96,26 +93,21 @@ process PROCESS_STATS_WITH_R {
             dplyr::mutate(combined_cov = sum(predicted_cov)) |>
             dplyr::ungroup()
         
-        filtered_stats <- stats |>
-            dplyr::filter(combined_cov >= ${params.cov_threshold})
-    } else {
-        cat("Calculating coverage for individual runs without combining...\\n")
-        stats <- stats |>
-            dplyr::mutate(
-                genome_size   = ${params.genome_size},
-                predicted_cov = sum_len / genome_size,
-                # Extract isolate name from filename using capture group
-                isolate = stringr::str_match(file, "_barcode[0-9]+_([^_]+)_combined")[,2]
-            )
-        filtered_stats <- stats |>
-            dplyr::filter(predicted_cov >= ${params.cov_threshold})
+    comb_filtered_stats <- stats |>
+        dplyr::filter(combined_cov >= ${params.cov_threshold}) |>
+        dplyr::arrange(isolate, desc(combined_cov))
+    
+    ind_filtered_stats <- stats |>
+        dplyr::filter(predicted_cov >= ${params.cov_threshold}) |>
+        dplyr::arrange(isolate, desc(predicted_cov))
     }
     write.csv(stats, "processed_seqkit_stats.csv", row.names = FALSE)
-    write.csv(filtered_stats, "filtered_seqkit_stats.csv", row.names = FALSE)
+    write.csv(comb_filtered_stats, "combined_filtered_seqkit_stats.csv", row.names = FALSE)
+    write.csv(ind_filtered_stats, "individual_filtered_seqkit_stats.csv", row.names = FALSE)
 
     #Now, make versions of the bacass sample sheet depending on read_type parameter
     if (read_type == "long") {
-        sample_sheet <- filtered_stats |>
+        ind_sample_sheet <- ind_filtered_stats |>
             dplyr::mutate(
                 R1 = NA, 
                 R2 = NA, 
@@ -124,10 +116,53 @@ process PROCESS_STATS_WITH_R {
             ) |>
             dplyr::rename(ID = isolate) |>
             dplyr::select(ID, R1, R2, LongFastQ, GenomeSize)
+
+        comb_sample_sheet <- comb_filtered_stats |>
+            dplyr::mutate(
+                R1 = NA, 
+                R2 = NA, 
+                LongFastQ = paste0(fastq_path, "/", file),
+                GenomeSize = ${params.genome_size}
+            ) |>
+            dplyr::rename(ID = isolate) |>
+            dplyr::select(ID, R1, R2, LongFastQ, GenomeSize)
+
+        write.csv(ind_sample_sheet, "bacass_individual_run_filt_${params.cov_threshold}X_thresh_ont_only.csv", row.names = FALSE)
+        write.csv(comb_sample_sheet, "bacass_combined_runs_filt_${params.cov_threshold}X_thresh_ont_only.csv", row.names = FALSE)
+
     }
 
-    write.csv(sample_sheet, "bacass_prep_sample_sheet.csv", row.names = FALSE)
+    if (read_type == "hybrid") {
+        sr_log <- data.table::fread("${params.sr_log}")
+        sr_log <- sr_log |>
+            dplyr::mutate(ID = Isolate, R1 = R1, R2 = R2) |>
+            dplyr::select(ID, R1, R2)
 
+        ind_sample_sheet <- ind_filtered_stats |>
+            dplyr::mutate(
+                LongFastQ = paste0(fastq_path, "/", file),
+                GenomeSize = ${params.genome_size}
+            ) |>
+            dplyr::rename(ID = isolate) |>
+            dplyr::select(ID, LongFastQ, GenomeSize) |>
+            dplyr::left_join(illumina_log, by = "ID") |>
+            dplyr::select(ID, R1, R2, LongFastQ, GenomeSize)
+
+        comb_sample_sheet <- comb_filtered_stats |>
+            dplyr::mutate(
+                LongFastQ = paste0(fastq_path, "/", file),
+                GenomeSize = ${params.genome_size}
+            ) |>
+            dplyr::rename(ID = isolate) |>
+            dplyr::select(ID, LongFastQ, GenomeSize) |>
+            dplyr::left_join(illumina_log, by = "ID") |>
+            dplyr::select(ID, R1, R2, LongFastQ, GenomeSize)
+
+        write.csv(ind_sample_sheet, "bacass_individual_run_filt_${params.cov_threshold}X_thresh_hybrid.csv", row.names = FALSE)
+        write.csv(comb_sample_sheet, "bacass_combined_runs_filt_${params.cov_threshold}X_thresh_hybrid.csv", row.names = FALSE)
+
+    }
+    
     RS
     
     chmod +x run_stats.R
@@ -178,6 +213,15 @@ workflow {
         : channel.empty() // If read_type is not short or hybrid, create an empty channel   
 
     if (params.read_type in ["long", "hybrid"]) {
+
+        //if skip_concat is true, then skip the concatenate process, build a channel with the seqkit stats output file and run the R process
+        if (params.skip_concat) {
+            ont_stats_ch = channel.fromPath(params.outdir + "/seqkit_stats/seqkit_stats_report.tsv", checkIfExists: true)
+            }
+            PROCESS_STATS_WITH_R(ont_stats_ch)
+            return
+        }
+
         //feed the channel into the concatenate process
         CONCATENATE_FASTQ(ont_ch)
         ont_combined_fastqs = CONCATENATE_FASTQ.out.combined_fastq.collect()
