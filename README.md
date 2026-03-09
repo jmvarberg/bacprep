@@ -41,3 +41,25 @@ Yes, this is correct. Once you've concatenated them, changing the other paramete
 * Need to build in functionality for creating bacass sample sheets for short and hybrid options.
 * Will need to have R function that reads in the short read log, left joins with the ONT log after filtering, and outputs correct R1/R2 paths.
 * Need to think about where the fastq files should be stored? What would make sense with respect to where bacass will be run? Think within the context of bacass prep > bacass > annotyper workflow.
+
+
+DEV Branch Refactor:
+
+The reason we need this workflow is to accomplish the following:
+
+1) Pull ONT sequencing results from many runs/locations into one location and combine fastqs into one file per sample/run.
+2) Run seqkit stats on each isolates fastq file to calculate predicted coverage. We want to pre-filter to only keep strains with sufficient predicted coverage based on a user-defined threshold.
+3) Allow for samples to be retained if combining ONT runs from multiple sequencing runs allows it to pass the threshold.
+4) Prepare a sample sheet for bacass that only includes ONT samples that should pass the minimum sequence coverage threshold and optionally combine the ONT samples with Illumina short read samples to use for polishing of assemblies with Polypolish.
+
+To accomplish this, the user must provide:
+
+1) ONT sample log with run, barcode, and isolate information and a path to the location where the fastq files are located.
+2) Desired minimum predicted coverage value (defaults to 50x)
+3) Logical input on whether samples should be allowed to be combined to reach the threshold?
+4) Logical input on whether there are short read samples to be added to the bacass sample sheet output?
+5) If Yes to short read, a CSV file input with run, barcode and isolate information. Isolate ID must match exactly the isolate information in the ONT long read table.
+
+To Do/Changes:
+
+1) Changed ONT channel specification to handle both paths to directories with multiple fastq files to be concatenated, as well as to individual FASTQ files.
