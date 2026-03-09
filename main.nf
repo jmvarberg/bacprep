@@ -44,8 +44,6 @@ process SEQKIT_STATS {
     """
 }
 
-
-
 process PROCESS_STATS_WITH_R {
 
     label "process_single"
