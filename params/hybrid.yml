@@ -1,0 +1,9 @@
+ont_log: null
+sr_log: null
+outdir: 'results'
+help: false
+trace_report_suffix: new java.util.Date().format( 'yyyy-MM-dd_HH-mm-ss')
+genome_size: 5100000 
+cov_threshold: 50 
+read_type: 'hybrid' 
+combine_ont: false

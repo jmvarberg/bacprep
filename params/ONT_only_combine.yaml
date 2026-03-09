@@ -1,0 +1,9 @@
+ont_log: "test/bacass_prep_test_log.csv"
+sr_log: null
+outdir: 'results_ONT_only_combined'
+help: false
+trace_report_suffix: new java.util.Date().format( 'yyyy-MM-dd_HH-mm-ss')
+genome_size: 5100000 
+cov_threshold: 50 
+read_type: 'long' 
+combine_ont: true
