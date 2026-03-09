@@ -1,6 +1,4 @@
 .nextflow*
-results/
-results/ONT_only/
-results/ONT_only_combined/
-test/
-work/
+results*/
+test*/
+work*/
