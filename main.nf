@@ -203,14 +203,38 @@ workflow {
     //Pipeline logic for long/hybrid. 
     if (params.read_type in ["long", "hybrid"]) {
 
-        //feed the channel into the concatenate process
+        def ch_fastqs //make unified channel to handle with or without staging approaches
+
+        if(!params.skip_staging) {
+            //feed the channel into the concatenate process
         STAGE_FASTQS(ont_ch)
+        ch_fastqs = STAGE_FASTQS.out.processed_fastq.collect()
+        }
 
-        processed_fastqs = STAGE_FASTQS.out.processed_fastq.collect()
+    else {
+            //--------------------------------------------
+            // Skip staging; user provides a directory with ready FASTQs
+            //--------------------------------------------
+            if (!params.staged_dir) //check/require path to dir with fastqs if not staged
+                error "skip_staging=true but --staged_dir was not provided. Resubmit with a --staged_dir as a valid path to directory with fastq files."
 
-        SEQKIT_STATS(processed_fastqs)
+            def staged = file(params.staged_dir)
+            if (!staged.exists()) //make sure that path to the staged_dir exists
+                error "Directory provided as param '--staged_dir' does not exist: ${staged}"
 
-        // insert process here with R script to calculate predicted coverage, optionally combine isolate
-        PROCESS_STATS_WITH_R(SEQKIT_STATS.out.combined_seqkit_stats)
+            // Build a channel of paths from pre-staged directory.
+            
+            // Use a plain interpolated glob string; no resolve()
+            def ch_staged_paths = Channel.fromPath(
+                "${staged.toString()}/*.fastq.gz",
+                checkIfExists: true
+            ).ifEmpty { error "No FASTQ(.fastq.gz) files found in staged_dir: ${staged}" }
+
+            ch_fastqs = ch_staged_paths.collect()
+        }
+            
+    SEQKIT_STATS(ch_fastqs)
+    // insert process here with R script to calculate predicted coverage, optionally combine isolate
+    PROCESS_STATS_WITH_R(SEQKIT_STATS.out.combined_seqkit_stats)
     }
 }
